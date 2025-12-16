@@ -400,10 +400,17 @@
         // Seleccionar íconos del tema actual
         const currentIcons = temas[temaActual].icons;
 
-        let minHora = 7; let maxHora = 21;
+        // 1. Definimos un rango por defecto (solo si no hay clases)
+        let minHora = 7; 
+        let maxHora = 21;
+
+        // 2. Si hay clases, ajustamos el rango exactamente a lo que necesitas
         if (clases.length > 0) {
-            const fines = clases.map(c => c.fin);
-            maxHora = Math.max(21, ...fines);
+            const inicios = clases.map(c => c.inicio); // Lista de horas de inicio
+            const fines = clases.map(c => c.fin);      // Lista de horas de fin
+            
+            minHora = Math.min(...inicios); // La hora más temprana
+            maxHora = Math.max(...fines);   // La hora más tardía
         }
 
         let html = '<thead><tr class="character-header"><td></td>';
@@ -419,6 +426,7 @@
         });
         html += '</tr></thead><tbody>';
 
+        // 3. El ciclo ahora usa el minHora y maxHora dinámicos
         for(let h = minHora; h < maxHora; h++) {
             html += '<tr><td class="time-col">' + h + ':00</td>';
             diasCompletos.forEach(dia => {
