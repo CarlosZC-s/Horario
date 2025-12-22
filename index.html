@@ -44,6 +44,23 @@
   .input-group { margin-bottom: 15px; }
   label { display: block; color: var(--text); font-weight: bold; margin-bottom: 5px; font-size: 14px; }
   
+/* --- AGREGAR ESTO EN EL CSS --- */
+.dias-checkboxes {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+.dias-checkboxes label {
+    font-weight: normal;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+
   input, select {
       width: 100%; padding: 10px; border: 2px solid var(--border);
       border-radius: 10px; font-family: 'Quicksand', sans-serif;
@@ -190,15 +207,15 @@
       </div>
       
       <div class="input-group">
-          <label>Día:</label>
-          <select id="inpDia">
-              <option value="Lunes">Lunes</option>
-              <option value="Martes">Martes</option>
-              <option value="Miércoles">Miércoles</option>
-              <option value="Jueves">Jueves</option>
-              <option value="Viernes">Viernes</option>
-          </select>
-      </div>
+         <label>Días:</label>
+            <div class="dias-checkboxes">
+                <label><input type="checkbox" name="dia" value="Lunes"> Lun</label>
+                <label><input type="checkbox" name="dia" value="Martes"> Mar</label>
+                <label><input type="checkbox" name="dia" value="Miércoles"> Mié</label>
+                <label><input type="checkbox" name="dia" value="Jueves"> Jue</label>
+                <label><input type="checkbox" name="dia" value="Viernes"> Vie</label>
+            </div>
+        </div>
       
       <div class="input-group" style="display: flex; gap: 10px;">
           <div style="flex:1;">
@@ -213,6 +230,7 @@
 
       <button class="btn-add" onclick="agregarClase()">✨ Agregar al Horario</button>
       <button class="btn-add" style="background-color: #42a5f5;" onclick="window.print()">🖨️ Imprimir PDF</button>
+      <button class="btn-add" style="background-color: #78909c; margin-top: 5px;" onclick="reiniciarHorario()">🗑️ Borrar Todo</button>
 
       <div class="lista-materias" id="listaMaterias"></div>
       <p style="text-align: center; font-size: 10px; color: #888;">Si no carga la imagen al imprimir, marca "Gráficos de fondo" en opciones.</p>
@@ -334,6 +352,23 @@
 
     let temaActual = "melody"; 
 
+    function guardarEnMemoria() {
+        // Guardamos la lista de materias convertida a texto
+        localStorage.setItem('miHorario_clases', JSON.stringify(clases));
+        // Guardamos también el tema que elegiste (Melody, Pucca, etc.)
+        localStorage.setItem('miHorario_tema', temaActual);
+    }
+
+    function reiniciarHorario() {
+        if (confirm("¿Estás seguro de que quieres borrar todo el horario?")) {
+            clases = [];
+            localStorage.removeItem('miHorario_clases');
+            // Opcional: localStorage.removeItem('miHorario_tema'); si quieres reiniciar el tema también
+            renderizarLista();
+            renderizarTabla();
+        }
+    }
+    
     function cambiarTema() {
         const seleccion = document.getElementById('inpTema').value;
         const tema = temas[seleccion];
@@ -347,17 +382,26 @@
         
         // Refrescar tabla para actualizar íconos
         renderizarTabla();
+        if (document.readyState === 'complete') {
+             localStorage.setItem('miHorario_tema', seleccion);
+        }
     }
 
     function agregarClase() {
         const materia = document.getElementById('inpMateria').value.trim();
         const salon = document.getElementById('inpSalon').value.trim();
-        const dia = document.getElementById('inpDia').value;
+        
+        // --- CAMBIO: OBTENER TODOS LOS CHECKBOXES MARCADOS ---
+        const checkboxes = document.querySelectorAll('input[name="dia"]:checked');
+        const diasSeleccionados = Array.from(checkboxes).map(cb => cb.value);
+
         const inicio = parseInt(document.getElementById('inpInicio').value);
         const fin = parseInt(document.getElementById('inpFin').value);
 
+        // Validaciones básicas
         if(!materia) { alert("¡Falta el nombre de la materia!"); return; }
         if(!salon) { alert("¡Falta el salón!"); return; } 
+        if(diasSeleccionados.length === 0) { alert("⚠️ Selecciona al menos un día."); return; } // Validación nueva
         if (inicio < 7 || inicio > 20) { alert("⚠️ La hora de inicio debe ser entre las 7:00 y las 20:00."); return; }
         if (fin < 8 || fin > 21) { alert("⚠️ La hora de fin debe ser entre las 8:00 y las 21:00."); return; }
         if(fin <= inicio) { alert("La hora de fin debe ser mayor a la de inicio"); return; }
@@ -365,20 +409,36 @@
         const regexMateria = /^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s\.\-]+$/; 
         if (!regexMateria.test(materia)) { alert("⚠️ Error en Materia: Solo letras y números."); return; }
 
-        const choque = clases.find(c => c.dia === dia && inicio < c.fin && c.inicio < fin);
-        if (choque) { alert("⚠️ Choque con: " + choque.materia); return; }
+        // --- VALIDACIÓN DE CHOQUES PARA CADA DÍA SELECCIONADO ---
+        for (let dia of diasSeleccionados) {
+            const choque = clases.find(c => c.dia === dia && inicio < c.fin && c.inicio < fin);
+            if (choque) { 
+                alert(`⚠️ Choque el día ${dia} con la materia: ${choque.materia}`); 
+                return; // Si hay choque en ALGUN día, no agrega nada
+            }
+        }
 
-        clases.push({ id: Date.now(), materia, salon, dia, inicio, fin });
+        // --- AGREGAR LA CLASE PARA CADA DÍA ---
+        diasSeleccionados.forEach(dia => {
+            clases.push({ id: Date.now() + Math.random(), materia, salon, dia, inicio, fin });
+        });
+
+        // Limpiar campos (opcional: puedes desmarcar los checkboxes si quieres)
         document.getElementById('inpMateria').value = "";
         document.getElementById('inpSalon').value = "";
+        // Desmarcar casillas
+        checkboxes.forEach(cb => cb.checked = false);
+
         renderizarLista();
         renderizarTabla();
+        guardarEnMemoria();
     }
 
     function borrarClase(id) {
         clases = clases.filter(c => c.id !== id);
         renderizarLista();
         renderizarTabla();
+        guardarEnMemoria();
     }
 
     function renderizarLista() {
@@ -444,8 +504,23 @@
     }
 
     window.onload = function() {
+        // 1. Intentar recuperar el tema guardado
+        const temaGuardado = localStorage.getItem('miHorario_tema');
+        if (temaGuardado && temas[temaGuardado]) {
+            document.getElementById('inpTema').value = temaGuardado;
+        }
+        
+        // Aplicar el tema (sea el guardado o el por defecto)
         cambiarTema();
-        renderizarTabla();
+
+        // 2. Intentar recuperar las clases guardadas
+        const clasesGuardadas = localStorage.getItem('miHorario_clases');
+        if (clasesGuardadas) {
+            // Convertir de texto a arreglo de JS
+            clases = JSON.parse(clasesGuardadas);
+            renderizarLista();
+            renderizarTabla();
+        }
     };
 </script>
 </body>
